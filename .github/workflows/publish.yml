@@ -9,10 +9,6 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: review-pages
-  cancel-in-progress: false
-
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -20,31 +16,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Use direct image URLs
+      - name: Update gh-pages
         run: |
           set -euo pipefail
           test -f review/look-inside/paperback-01.png
           test -f review/a-plus/header-970x300.jpg
-          python3 - << 'PY'
-          from pathlib import Path
-          path = Path('review/index.html')
-          text = path.read_text()
-          base = 'https://raw.githubusercontent.com/sashakhad/dad-bod-review/gh-pages/review/'
-          text = text.replace('src="look-inside/', f'src="{base}look-inside/')
-          text = text.replace('src="a-plus/', f'src="{base}a-plus/')
-          text = text.replace(
-              'https://sashakhad.github.io/dad-bod-review/review/',
-              'https://raw.githack.com/sashakhad/dad-bod-review/gh-pages/review/index.html',
-          )
-          path.write_text(text)
-          PY
-          git config user.name "Cursor Agent"
-          git config user.email "cursoragent@cursor.com"
-          git add review/index.html
-          if git diff --cached --quiet; then
-            echo "Image URLs were already direct."
-          else
-            git commit -m "Point the review pictures at public image files."
-            git push origin HEAD:main
-          fi
-          git push origin HEAD:gh-pages
+          grep -q 'raw.githubusercontent.com' review/index.html
+          git push --force origin HEAD:gh-pages
