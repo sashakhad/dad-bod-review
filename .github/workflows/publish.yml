@@ -8,8 +8,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: review-pages
@@ -22,51 +20,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Add the review images
+      - name: Publish the gh-pages branch
         run: |
           set -euo pipefail
-          if [ -f review/look-inside/paperback-01.png ] && [ -f review/a-plus/header-970x300.jpg ]; then
-            echo "Images are already in the repo."
-          else
-            curl -fsSL -o /tmp/review-assets.tar.gz "https://tmpfiles.org/dl/1792686188.d6cbb8b0f1d2d78c/w5AZMlGcIOBr/review-assets.tar.gz"
-            mkdir -p review
-            tar -xzf /tmp/review-assets.tar.gz -C review
-          fi
           test -f review/index.html
-          test -f review/look-inside/paperback-10.png
-          test -f review/look-inside/kindle-10.png
+          test -f review/look-inside/paperback-01.png
           test -f review/a-plus/header-970x300.jpg
-          test -f review/a-plus/quad-soft-300.jpg
-          git config user.name "Cursor Agent"
-          git config user.email "cursoragent@cursor.com"
-          git add review
-          if git diff --cached --quiet; then
-            echo "No image changes to commit."
-          else
-            git commit -m "Add the Look Inside pages and A+ panels."
-            git push
-          fi
+          git push origin HEAD:gh-pages
 
       - name: Turn on GitHub Pages
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set +e
+          gh api --method POST "/repos/${GITHUB_REPOSITORY}/pages" -f source[branch]=gh-pages -f source[path]=/
+          echo "branch source exit: $?"
           gh api --method POST "/repos/${GITHUB_REPOSITORY}/pages" -f build_type=workflow
-          workflow_status=$?
-          if [ "$workflow_status" -ne 0 ]; then
-            gh api --method POST "/repos/${GITHUB_REPOSITORY}/pages" -f source[branch]=main -f source[path]=/
-          fi
-          gh api "/repos/${GITHUB_REPOSITORY}/pages"
-
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
-
-      - name: Deploy Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          echo "workflow source exit: $?"
+          gh api "/repos/${GITHUB_REPOSITORY}/pages" || true
