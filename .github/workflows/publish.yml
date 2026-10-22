@@ -20,22 +20,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Publish the gh-pages branch
+      - name: Use direct image URLs
         run: |
           set -euo pipefail
-          test -f review/index.html
           test -f review/look-inside/paperback-01.png
           test -f review/a-plus/header-970x300.jpg
+          python3 - << 'PY'
+          from pathlib import Path
+          path = Path('review/index.html')
+          text = path.read_text()
+          base = 'https://raw.githubusercontent.com/sashakhad/dad-bod-review/gh-pages/review/'
+          text = text.replace('src="look-inside/', f'src="{base}look-inside/')
+          text = text.replace('src="a-plus/', f'src="{base}a-plus/')
+          text = text.replace(
+              'https://sashakhad.github.io/dad-bod-review/review/',
+              'https://raw.githack.com/sashakhad/dad-bod-review/gh-pages/review/index.html',
+          )
+          path.write_text(text)
+          PY
+          git config user.name "Cursor Agent"
+          git config user.email "cursoragent@cursor.com"
+          git add review/index.html
+          if git diff --cached --quiet; then
+            echo "Image URLs were already direct."
+          else
+            git commit -m "Point the review pictures at public image files."
+            git push origin HEAD:main
+          fi
           git push origin HEAD:gh-pages
-
-      - name: Turn on GitHub Pages
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set +e
-          gh api --method POST "/repos/${GITHUB_REPOSITORY}/pages" -f source[branch]=gh-pages -f source[path]=/
-          echo "branch source exit: $?"
-          gh api --method POST "/repos/${GITHUB_REPOSITORY}/pages" -f build_type=workflow
-          echo "workflow source exit: $?"
-          gh api "/repos/${GITHUB_REPOSITORY}/pages" || true
